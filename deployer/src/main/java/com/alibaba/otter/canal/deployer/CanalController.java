@@ -446,6 +446,12 @@ public class CanalController {
         }
     }
 
+    /**
+     * 郁昊：首先查找 系统属性，再去查找环境变量属性，再去查找properties的属性
+     * @param properties
+     * @param key
+     * @return
+     */
     public static String getProperty(Properties properties, String key) {
         key = StringUtils.trim(key);
         String value = System.getProperty(key);

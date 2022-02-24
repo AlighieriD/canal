@@ -28,26 +28,51 @@ public class CanalLauncher {
     private static final String             CLASSPATH_URL_PREFIX = "classpath:";
     private static final Logger             logger               = LoggerFactory.getLogger(CanalLauncher.class);
     public static final CountDownLatch      runningLatch         = new CountDownLatch(1);
+    /**
+     * 郁昊：定时执行线程池
+     */
     private static ScheduledExecutorService executor             = Executors.newScheduledThreadPool(1,
                                                                      new NamedThreadFactory("canal-server-scan"));
 
     public static void main(String[] args) {
         try {
+            /**
+             * 郁昊：设置一个全局异常捕获handler
+             * 先由线程来捕获异常
+             * 再由线程组来捕获异常
+             * 最终由全局默认handler捕获异常
+             */
             logger.info("## set default uncaught exception handler");
             setGlobalUncaughtExceptionHandler();
 
             logger.info("## load canal configurations");
+            /**
+             * 郁昊：这里来加载配置文件
+             * 如果通过 -D 的方式指定了配置文件（System.getProperty）则使用，否则使用默认文件
+             */
             String conf = System.getProperty("canal.conf", "classpath:canal.properties");
             Properties properties = new Properties();
             if (conf.startsWith(CLASSPATH_URL_PREFIX)) {
                 conf = StringUtils.substringAfter(conf, CLASSPATH_URL_PREFIX);
+                /**
+                 * 郁昊：基于classpath查找文件
+                 */
                 properties.load(CanalLauncher.class.getClassLoader().getResourceAsStream(conf));
             } else {
+                /**
+                 * 郁昊：TODO
+                 */
                 properties.load(new FileInputStream(conf));
             }
 
+            /**
+             * 郁昊：初始化 canalStater
+             */
             final CanalStarter canalStater = new CanalStarter(properties);
             String managerAddress = CanalController.getProperty(properties, CanalConstants.CANAL_ADMIN_MANAGER);
+            /**
+             * canal管理端口 配置不为空的情况下
+             */
             if (StringUtils.isNotEmpty(managerAddress)) {
                 String user = CanalController.getProperty(properties, CanalConstants.CANAL_ADMIN_USER);
                 String passwd = CanalController.getProperty(properties, CanalConstants.CANAL_ADMIN_PASSWD);
@@ -68,6 +93,9 @@ public class CanalLauncher {
                     autoRegister,
                     autoCluster,
                     name);
+                /**
+                 * 去CANAL_ADMIN_MANAGER请求canal配置
+                 */
                 PlainCanal canalConfig = configClient.findServer(null);
                 if (canalConfig == null) {
                     throw new IllegalArgumentException("managerAddress:" + managerAddress
@@ -77,6 +105,9 @@ public class CanalLauncher {
                 Properties managerProperties = canalConfig.getProperties();
                 // merge local
                 managerProperties.putAll(properties);
+                /**
+                 * 获取扫描的间隔，定期扫描最新配置文件，如果有新的配置则重新加载整个应用
+                 */
                 int scanIntervalInSecond = Integer.valueOf(CanalController.getProperty(managerProperties,
                     CanalConstants.CANAL_AUTO_SCAN_INTERVAL,
                     "5"));
@@ -115,6 +146,10 @@ public class CanalLauncher {
             }
 
             canalStater.start();
+            /**
+             * 通过CountDownLatch在此阻塞
+             * 通过 Runtime.getRuntime().addShutdownHook(shutdownThread); 添加"关闭钩"实现优雅关闭
+             */
             runningLatch.await();
             executor.shutdownNow();
         } catch (Throwable e) {
