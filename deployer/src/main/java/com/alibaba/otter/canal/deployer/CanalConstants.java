@@ -33,6 +33,9 @@ public class CanalConstants {
     public static final String CANAL_AUTO_SCAN                      = ROOT + "." + "auto.scan";
     public static final String CANAL_AUTO_SCAN_INTERVAL             = ROOT + "." + "auto.scan.interval";
     public static final String CANAL_CONF_DIR                       = ROOT + "." + "conf.dir";
+    /**
+     * CANAL_SERVER_MODE：canal 服务端消息推送模式
+     */
     public static final String CANAL_SERVER_MODE                    = ROOT + "." + "serverMode";
 
     public static final String CANAL_DESTINATION_SPLIT              = ",";

@@ -70,9 +70,15 @@ public class ExtensionLoader<T> {
     @SuppressWarnings("unchecked")
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type, String classLoaderPolicy) {
         if (type == null) throw new IllegalArgumentException("Extension type == null");
+        /**
+         * 传入的type需要是一个接口，去加载的是实现类
+         */
         if (!type.isInterface()) {
             throw new IllegalArgumentException("Extension type(" + type + ") is not interface!");
         }
+        /**
+         * 如果SPI接口类没有拓展注解（SPI），则抛出异常
+         */
         if (!withExtensionAnnotation(type)) {
             throw new IllegalArgumentException("Extension type(" + type + ") is not extension, because WITHOUT @"
                                                + SPI.class.getSimpleName() + " Annotation!");
