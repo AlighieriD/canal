@@ -67,7 +67,7 @@ public class CanalStarter {
          */
         if (!"tcp".equalsIgnoreCase(serverMode)) {
             /**
-             *
+             * 郁昊：初始化一个 CanalMQProducer类扩展加载器（ExtensionLoader<CanalMQProducer> ）
              */
             ExtensionLoader<CanalMQProducer> loader = ExtensionLoader.getExtensionLoader(CanalMQProducer.class);
             canalMQProducer = loader

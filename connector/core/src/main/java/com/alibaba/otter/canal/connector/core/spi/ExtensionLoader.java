@@ -39,6 +39,9 @@ public class ExtensionLoader<T> {
 
     private static final Pattern                                     NAME_SEPARATOR             = Pattern.compile("\\s*[,]+\\s*");
 
+    /**
+     * 郁昊：加载的SPI缓存
+     */
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS          = new ConcurrentHashMap<>();
 
     private static final ConcurrentMap<Class<?>, Object>             EXTENSION_INSTANCES        = new ConcurrentHashMap<>();
@@ -59,6 +62,12 @@ public class ExtensionLoader<T> {
 
     private ConcurrentHashMap<String, IllegalStateException>         exceptions                 = new ConcurrentHashMap<>();
 
+    /**
+     * 郁昊：检查是否有SPI注解
+     * @param type
+     * @param <T>
+     * @return
+     */
     private static <T> boolean withExtensionAnnotation(Class<T> type) {
         return type.isAnnotationPresent(SPI.class);
     }
@@ -67,6 +76,13 @@ public class ExtensionLoader<T> {
         return getExtensionLoader(type, DEFAULT_CLASSLOADER_POLICY);
     }
 
+    /**
+     * 郁昊：加载
+     * @param type SPI 接口类
+     * @param classLoaderPolicy
+     * @param <T>
+     * @return
+     */
     @SuppressWarnings("unchecked")
     public static <T> ExtensionLoader<T> getExtensionLoader(Class<T> type, String classLoaderPolicy) {
         if (type == null) throw new IllegalArgumentException("Extension type == null");
@@ -84,6 +100,9 @@ public class ExtensionLoader<T> {
                                                + SPI.class.getSimpleName() + " Annotation!");
         }
 
+        /**
+         * 郁昊：先尝试从缓存获取，有则返回，没有 new一个出来
+         */
         ExtensionLoader<T> loader = (ExtensionLoader<T>) EXTENSION_LOADERS.get(type);
         if (loader == null) {
             EXTENSION_LOADERS.putIfAbsent(type, new ExtensionLoader<T>(type, classLoaderPolicy));
