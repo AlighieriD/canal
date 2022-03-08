@@ -40,14 +40,20 @@ public class ExtensionLoader<T> {
     private static final Pattern                                     NAME_SEPARATOR             = Pattern.compile("\\s*[,]+\\s*");
 
     /**
-     * 郁昊：加载的SPI缓存
+     * 郁昊：扩展加载器缓存
      */
     private static final ConcurrentMap<Class<?>, ExtensionLoader<?>> EXTENSION_LOADERS          = new ConcurrentHashMap<>();
 
+    /**
+     * 郁昊：扩展类的实例 的缓存
+     */
     private static final ConcurrentMap<Class<?>, Object>             EXTENSION_INSTANCES        = new ConcurrentHashMap<>();
 
     private static final ConcurrentMap<String, Object>               EXTENSION_KEY_INSTANCE     = new ConcurrentHashMap<>();
 
+    /**
+     * 郁昊：SPI接口类
+     */
     private final Class<?>                                           type;
 
     private final String                                             classLoaderPolicy;
@@ -56,8 +62,14 @@ public class ExtensionLoader<T> {
 
     private final Holder<Map<String, Class<?>>>                      cachedClasses              = new Holder<>();
 
+    /**
+     * Holder 与 服务模式(serverMode) 的映射缓存,Holder中保存着扩展类实例
+     */
     private final ConcurrentMap<String, Holder<Object>>              cachedInstances            = new ConcurrentHashMap<>();
 
+    /**
+     * 郁昊：SPI类注解上的默认值 @SPI("kafka")
+     */
     private String                                                   cachedDefaultName;
 
     private ConcurrentHashMap<String, IllegalStateException>         exceptions                 = new ConcurrentHashMap<>();
@@ -77,9 +89,9 @@ public class ExtensionLoader<T> {
     }
 
     /**
-     * 郁昊：加载
+     * 郁昊：获取 扩展加载器
      * @param type SPI 接口类
-     * @param classLoaderPolicy
+     * @param classLoaderPolicy TODO
      * @param <T>
      * @return
      */
@@ -123,21 +135,31 @@ public class ExtensionLoader<T> {
 
     /**
      * 返回指定名字的扩展
-     *
-     * @param name
+     * @param name 服务模式
+     * @param spiDir
+     * @param standbyDir
      * @return
      */
     @SuppressWarnings("unchecked")
     public T getExtension(String name, String spiDir, String standbyDir) {
         if (name == null || name.length() == 0) throw new IllegalArgumentException("Extension name == null");
+        /**
+         * 郁昊：TODO 此次暂且不表
+         */
         if ("true".equals(name)) {
             return getDefaultExtension(spiDir, standbyDir);
         }
+        /**
+         * 郁昊：先尝试从缓存获取 服务模式对应的Holder，如果没有new一个出来
+         */
         Holder<Object> holder = cachedInstances.get(name);
         if (holder == null) {
             cachedInstances.putIfAbsent(name, new Holder<>());
             holder = cachedInstances.get(name);
         }
+        /**
+         * 双检锁，保证instance的线程安全，注意instance是volatile的值
+         */
         Object instance = holder.get();
         if (instance == null) {
             synchronized (holder) {
@@ -187,6 +209,13 @@ public class ExtensionLoader<T> {
         return getExtension(cachedDefaultName, spiDir, standbyDir);
     }
 
+    /**
+     *
+     * @param name
+     * @param spiDir
+     * @param standbyDir
+     * @return
+     */
     @SuppressWarnings("unchecked")
     public T createExtension(String name, String spiDir, String standbyDir) {
         Class<?> clazz = getExtensionClasses(spiDir, standbyDir).get(name);
@@ -242,6 +271,10 @@ public class ExtensionLoader<T> {
         return classes;
     }
 
+    /**
+     * 获得当前classpath的路径
+     * @return
+     */
     private String getJarDirectoryPath() {
         URL url = Thread.currentThread().getContextClassLoader().getResource("");
         String dirtyPath;
@@ -272,7 +305,16 @@ public class ExtensionLoader<T> {
         return null;
     }
 
+    /**
+     *
+     * @param spiDir
+     * @param standbyDir
+     * @return
+     */
     private Map<String, Class<?>> loadExtensionClasses(String spiDir, String standbyDir) {
+        /**
+         * 郁昊：获取SPI接口类的注解，获取默认的 扩展名称 @SPI("kafka")
+         */
         final SPI defaultAnnotation = type.getAnnotation(SPI.class);
         if (defaultAnnotation != null) {
             String value = defaultAnnotation.value();
@@ -288,7 +330,14 @@ public class ExtensionLoader<T> {
 
         Map<String, Class<?>> extensionClasses = new HashMap<>();
 
+        /**
+         * spiDir目录 和 standbyDir目录不为空的情况下
+         */
         if (spiDir != null && standbyDir != null) {
+            /**
+             * getJarDirectoryPath为 当前classpath路径
+             * 先尝试获取spiDir文件夹，如果不存在去获取standbyDir文件夹
+             */
             // 1. plugin folder，customized extension classLoader
             // （jar_dir/plugin）
             String dir = File.separator + this.getJarDirectoryPath() + spiDir; // +
@@ -300,6 +349,9 @@ public class ExtensionLoader<T> {
             }
             logger.info("extension classpath dir: " + externalLibDir.getAbsolutePath());
             if (externalLibDir.exists()) {
+                /**
+                 * 获取目录下面的所有jar
+                 */
                 File[] files = externalLibDir.listFiles((dir1, name) -> name.endsWith(".jar"));
                 if (files != null) {
                     for (File f : files) {
@@ -310,6 +362,9 @@ public class ExtensionLoader<T> {
                             throw new RuntimeException("load extension jar failed!", e);
                         }
 
+                        /**
+                         * 郁昊：获取当前线程的ClassLoader
+                         */
                         ClassLoader parent = Thread.currentThread().getContextClassLoader();
                         URLClassLoader localClassLoader;
                         if (classLoaderPolicy == null || "".equals(classLoaderPolicy)
